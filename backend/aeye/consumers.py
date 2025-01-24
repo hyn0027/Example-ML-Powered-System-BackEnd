@@ -3,6 +3,9 @@ import json
 import asyncio
 import base64
 import random
+from .models import DiagnoseReport
+from asgiref.sync import sync_to_async
+from django.core.files.base import ContentFile
 
 from typing import Tuple, Optional
 
@@ -54,7 +57,9 @@ class ProcessConsumer(AsyncWebsocketConsumer):
         diagnose_result, confidence = await self.diagnose(formData, image_data)
         await self.send(json.dumps({"message": "Diagnosis complete"}))
 
-        report = await self.generate_report(diagnose_result, confidence)
+        report = await self.generate_and_save_report(
+            formData, image_data, diagnose_result, confidence
+        )
         await self.send(json.dumps({"message": "Report generated", "report": report}))
 
     async def verify_form_data(self, form_data) -> Tuple[bool, Optional[str]]:
@@ -99,8 +104,8 @@ class ProcessConsumer(AsyncWebsocketConsumer):
             return False, "Invalid age, weight, or height, must be a number"
         if age < 0 or age > 160:
             return False, "Invalid age, must be between 0 and 160"
-        if gender not in ["Female", "Male", "Other"]:
-            return False, "Invalid gender, must be Female, Male, or Other"
+        if gender not in ["Female", "Male", "Non-binary"]:
+            return False, "Invalid gender, must be Female, Male, or Non-binary"
         if diabetes_history not in ["Yes", "No", "Unknown"]:
             return False, "Invalid diabetes history, must be Yes, No, or Unknown"
         if family_diabetes_history not in ["Yes", "No", "Unknown"]:
@@ -153,7 +158,9 @@ class ProcessConsumer(AsyncWebsocketConsumer):
             print(f"Failed to decode base64 image: {e}")
             return None
 
-    async def generate_report(self, diagnose_result, confidence):
+    async def generate_and_save_report(
+        self, form_data, image_data, diagnose_result, confidence
+    ):
         """
         Generates a report based on the diagnosis result and confidence.
         """
@@ -161,4 +168,28 @@ class ProcessConsumer(AsyncWebsocketConsumer):
             "diagnose": diagnose_result,
             "confidence": confidence,
         }
+        id = await self.save_report(form_data, image_data, report)
+        report["id"] = id
         return report
+
+    async def save_report(self, form_data, image_data, report):
+        """
+        Saves the report to the database.
+        """
+        report = await sync_to_async(DiagnoseReport.objects.create)(
+            diagnose_result=report["diagnose"],
+            confidence=report["confidence"],
+            camera_type=form_data["cameraType"],
+            age=form_data["age"],
+            gender=form_data["gender"],
+            diabetes_history=form_data["diabetesHistory"],
+            family_diabetes_history=form_data["familyDiabetesHistory"],
+            weight=form_data["weight"],
+            height=form_data["height"],
+        )
+        image_file_name = f"fundus_image_{report.id}.jpg"
+        image_file = await sync_to_async(ContentFile)(image_data, name=image_file_name)
+        await sync_to_async(report.fundus_image.save)(image_file_name, image_file)
+        await sync_to_async(report.save)()
+
+        return report.id
