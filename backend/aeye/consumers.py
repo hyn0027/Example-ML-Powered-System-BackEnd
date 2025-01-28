@@ -3,7 +3,9 @@ import json
 import asyncio
 import base64
 import random
+import time
 from .models import DiagnoseReport
+from .monitors import post_report
 from asgiref.sync import sync_to_async
 from django.core.files.base import ContentFile
 
@@ -23,6 +25,7 @@ class ProcessConsumer(AsyncWebsocketConsumer):
         pass
 
     async def receive(self, text_data):
+        time_start = time.time()
         data = json.loads(text_data)
         formData = data.get("formData")
         capturedPhoto = data.get("capturedPhoto")
@@ -57,10 +60,13 @@ class ProcessConsumer(AsyncWebsocketConsumer):
         diagnose_result, confidence = await self.diagnose(formData, image_data)
         await self.send(json.dumps({"message": "Diagnosis complete"}))
 
-        report = await self.generate_and_save_report(
+        report, final_report = await self.generate_and_save_report(
             formData, image_data, diagnose_result, confidence
         )
         await self.send(json.dumps({"message": "Report generated", "report": report}))
+        time_ends = time.time()
+        latency = time_ends - time_start
+        post_report(final_report, latency)
 
     async def verify_form_data(self, form_data) -> Tuple[bool, Optional[str]]:
         await asyncio.sleep(1)
@@ -168,9 +174,9 @@ class ProcessConsumer(AsyncWebsocketConsumer):
             "diagnose": diagnose_result,
             "confidence": confidence,
         }
-        id = await self.save_report(form_data, image_data, report)
+        id, final_report = await self.save_report(form_data, image_data, report)
         report["id"] = id
-        return report
+        return report, final_report
 
     async def save_report(self, form_data, image_data, report):
         """
@@ -192,4 +198,4 @@ class ProcessConsumer(AsyncWebsocketConsumer):
         await sync_to_async(report.fundus_image.save)(image_file_name, image_file)
         await sync_to_async(report.save)()
 
-        return report.id
+        return report.id, report
