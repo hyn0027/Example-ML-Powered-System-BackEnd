@@ -69,7 +69,7 @@ class ProcessConsumer(AsyncWebsocketConsumer):
         post_report(final_report, latency)
 
     async def verify_form_data(self, form_data) -> Tuple[bool, Optional[str]]:
-        await asyncio.sleep(1)
+        await asyncio.sleep(random.random())
         if not form_data:
             return False, "No basic information provided"
         camera_type = form_data.get("cameraType")
@@ -125,7 +125,7 @@ class ProcessConsumer(AsyncWebsocketConsumer):
     async def verify_and_decode_image(
         self, image_data
     ) -> Tuple[bool, Optional[bytes], Optional[str]]:
-        await asyncio.sleep(1)
+        await asyncio.sleep(random.random())
         if not image_data:
             return False, None, "No image data provided"
         image_data = await self.decode_base64_image(image_data)
@@ -140,7 +140,7 @@ class ProcessConsumer(AsyncWebsocketConsumer):
         Diagnoses the patient based on the provided form data and image data.
         """
         # Simulate a long-running diagnosis process
-        sleep_time = random.randint(5, 10)
+        sleep_time = random.randint(2, 10)
         await asyncio.sleep(sleep_time)
 
         diagnose_result = random.random() < PROBABILITY_DIABETES
