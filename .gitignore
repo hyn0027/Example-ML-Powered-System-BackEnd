@@ -173,4 +173,4 @@ cython_debug/
 
 credentials.json
 
-fundus_images/
+uploads/

@@ -25,4 +25,4 @@ class DiagnoseReport(models.Model):
     )
     weight = models.FloatField()
     height = models.FloatField()
-    fundus_image = models.ImageField(upload_to="fundus_images/")
+    fundus_image = models.ImageField(upload_to="uploads/")
