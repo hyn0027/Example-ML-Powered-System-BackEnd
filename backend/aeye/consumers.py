@@ -5,7 +5,6 @@ from asgiref.sync import sync_to_async
 from django.core.files.base import ContentFile
 
 from .models import DiagnoseReport
-from .monitors import post_report
 from .config import IMAGE_QUALITY_FAILED_RATE, PROBABILITY_DIABETES
 
 
@@ -43,9 +42,6 @@ class ProcessConsumer(AsyncWebsocketConsumer):
         # Step 4: Generate and store the diagnosis report
         report = await self.generate_and_save_report(form_data, image_data, diagnose_result, confidence)
         await self.send_message("Report generated", {"diagnose": diagnose_result, "confidence": confidence, "id": report.id})
-
-        # Step 5: Post the report for further processing
-        post_report(report)
 
     async def send_message(self, message: str, data: Optional[Any] = None):
         """Helper function to send messages to the WebSocket client."""
