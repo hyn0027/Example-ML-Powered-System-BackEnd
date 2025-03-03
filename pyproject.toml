@@ -1,0 +1,14 @@
+[tool.black]
+line-length = 125
+target-version = ['py36', 'py37', 'py38', 'py39', 'py310', 'py311', 'py312']
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git         # Ignore Git-related files
+  | \.venv        # Ignore virtual environments
+  | _build        # Ignore build directories
+  | dist          # Ignore distribution files
+  | migrations    # Often auto-generated in Django projects
+  | __pycache__   # Ignore compiled Python files
+)/
+'''

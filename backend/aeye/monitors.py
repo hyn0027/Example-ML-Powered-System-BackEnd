@@ -12,12 +12,11 @@ def read_credentials():
 USER_ID, API_KEY = read_credentials()
 
 
-def post_report(diagnose_report: DiagnoseReport, latency):
+def post_report(diagnose_report: DiagnoseReport):
     body = (
-        f"latency,"
+        f"confidence,"
         f"id={diagnose_report.id},"
         f"diagnose_result={diagnose_report.diagnose_result},"
-        f"confidence={diagnose_report.confidence},"
         f"camera_type={diagnose_report.camera_type.replace(' ', '_')},"
         f"age={diagnose_report.age},"
         f"age_group={diagnose_report.age // 10},"
@@ -29,29 +28,7 @@ def post_report(diagnose_report: DiagnoseReport, latency):
         f"height={diagnose_report.height},"
         f"height_group={diagnose_report.height // 10},"
         "source=ToySysServer "
-        f"value={latency}"
-    )
-    post_metric(body)
-
-
-def post_accuracy(diagnose_report: DiagnoseReport, accurate):
-    body = (
-        f"diagnose_accuracy,"
-        f"id={diagnose_report.id},"
-        f"diagnose_result={diagnose_report.diagnose_result},"
-        f"confidence={diagnose_report.confidence},"
-        f"camera_type={diagnose_report.camera_type.replace(' ', '_')},"
-        f"age={diagnose_report.age},"
-        f"age_group={diagnose_report.age // 10},"
-        f"gender={diagnose_report.gender},"
-        f"diabetes_history={diagnose_report.diabetes_history},"
-        f"family_diabetes_history={diagnose_report.family_diabetes_history},"
-        f"weight={diagnose_report.weight},"
-        f"weight_group={diagnose_report.weight // 10},"
-        f"height={diagnose_report.height},"
-        f"height_group={diagnose_report.height // 10},"
-        "source=ToySysServer "
-        f"value={int(accurate)}"
+        f"value={diagnose_report.confidence}"
     )
     post_metric(body)
 
