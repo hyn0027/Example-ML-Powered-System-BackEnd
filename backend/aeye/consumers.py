@@ -29,6 +29,10 @@ class ProcessConsumer(AsyncWebsocketConsumer):
         data = json.loads(text_data)
         formData = data.get("formData")
         capturedPhoto = data.get("capturedPhoto")
+        step_history = data.get("stepHistory")
+        retake_count = data.get("retakeCount")
+        print(f"step_history: {step_history}")
+        print(f"retake_count: {retake_count}")
 
         valid_form_data, form_data_error = await self.verify_form_data(formData)
         if not valid_form_data:
@@ -186,12 +190,12 @@ class ProcessConsumer(AsyncWebsocketConsumer):
             diagnose_result=report["diagnose"],
             confidence=report["confidence"],
             camera_type=form_data["cameraType"],
-            age=form_data["age"],
+            age=int(form_data["age"]),
             gender=form_data["gender"],
             diabetes_history=form_data["diabetesHistory"],
             family_diabetes_history=form_data["familyDiabetesHistory"],
-            weight=form_data["weight"],
-            height=form_data["height"],
+            weight=float(form_data["weight"]),
+            height=float(form_data["height"]),
         )
         image_file_name = f"fundus_image_{report.id}.jpg"
         image_file = await sync_to_async(ContentFile)(image_data, name=image_file_name)

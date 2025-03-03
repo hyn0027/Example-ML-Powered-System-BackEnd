@@ -4,6 +4,16 @@ import json
 import random
 import base64
 import os
+import requests
+
+
+def read_credentials():
+    with open("backend/credentials.json") as f:
+        data = json.load(f)
+    return int(data["USER_ID"]), data["API_KEY"]
+
+
+USER_ID, API_KEY = read_credentials()
 
 
 async def generate_fake_data():
@@ -42,7 +52,6 @@ async def call_api(url, fake_data, semaphore):
             async with websockets.connect(url) as websocket:
                 # Send the fake data as a JSON string
                 await websocket.send(json.dumps(fake_data))
-                print(f"Sent data: {json.dumps(fake_data, indent=2)}")
 
                 # Listen for messages from the server
                 while True:
@@ -56,6 +65,57 @@ async def call_api(url, fake_data, semaphore):
                         break
         except Exception as e:
             print(f"Error in WebSocket connection: {e}")
+        post_user_interface_info(random.gauss(120, 50), random.randint(1, 5), fake_data)
+
+
+def post_user_interface_info(total_time, photo_retake, fake_data):
+    body = (
+        f"UI_total_time,"
+        f"camera_type={fake_data['formData']['cameraType'].replace(' ', '_')},"
+        f"age={fake_data['formData']['age']},"
+        f"age_group={fake_data['formData']['age'] // 10},"
+        f"gender={fake_data['formData']['gender']},"
+        f"diabetes_history={fake_data['formData']['diabetesHistory']},"
+        f"family_diabetes_history={fake_data['formData']['familyDiabetesHistory']},"
+        f"weight={fake_data['formData']['weight']},"
+        f"weight_group={fake_data['formData']['weight'] // 10},"
+        f"height={fake_data['formData']['height']},"
+        f"height_group={fake_data['formData']['height'] // 10},"
+        "source=UserInterface "
+        f"value={total_time}"
+    )
+    post_metric(body)
+    print("posted total time")
+    body = (
+        f"UI_photo_retake,"
+        f"camera_type={fake_data['formData']['cameraType'].replace(' ', '_')},"
+        f"age={fake_data['formData']['age']},"
+        f"age_group={fake_data['formData']['age'] // 10},"
+        f"gender={fake_data['formData']['gender']},"
+        f"diabetes_history={fake_data['formData']['diabetesHistory']},"
+        f"family_diabetes_history={fake_data['formData']['familyDiabetesHistory']},"
+        f"weight={fake_data['formData']['weight']},"
+        f"weight_group={fake_data['formData']['weight'] // 10},"
+        f"height={fake_data['formData']['height']},"
+        f"height_group={fake_data['formData']['height'] // 10},"
+        "source=UserInterface "
+        f"value={photo_retake}"
+    )
+    post_metric(body)
+    print("posted photo retake")
+
+
+def post_metric(body):
+    response = requests.post(
+        "https://influx-prod-13-prod-us-east-0.grafana.net/api/v1/push/influx/write",
+        headers={
+            "Content-Type": "text/plain",
+        },
+        data=str(body),
+        auth=(USER_ID, API_KEY),
+    )
+    status_code = response.status_code
+    return status_code
 
 
 async def main():
