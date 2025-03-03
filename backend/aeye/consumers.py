@@ -4,15 +4,14 @@ import asyncio
 import base64
 import random
 import time
-from .models import DiagnoseReport
-from .monitors import post_report
+from typing import Tuple, Optional
 from asgiref.sync import sync_to_async
 from django.core.files.base import ContentFile
 
-from typing import Tuple, Optional
+from .models import DiagnoseReport
+from .monitors import post_report
 
 IMAGE_QUALITY_FAILED_RATE = 0.1
-
 PROBABILITY_DIABETES = 0.4
 
 
@@ -27,65 +26,54 @@ class ProcessConsumer(AsyncWebsocketConsumer):
     async def receive(self, text_data):
         time_start = time.time()
         data = json.loads(text_data)
-        formData = data.get("formData")
-        capturedPhoto = data.get("capturedPhoto")
+
+        form_data = data.get("formData")
+        captured_photo = data.get("capturedPhoto")
         step_history = data.get("stepHistory")
         retake_count = data.get("retakeCount")
-        print(f"step_history: {step_history}")
-        print(f"retake_count: {retake_count}")
 
-        valid_form_data, form_data_error = await self.verify_form_data(formData)
-        if not valid_form_data:
-            await self.send(
+        print(f"Step history: {step_history}, Retake count: {retake_count}")
+
+        # Validate form data
+        valid_form, error_msg = await self.verify_form_data(form_data)
+        if not valid_form:
+            return await self.send(
                 json.dumps(
-                    {
-                        "message": "Invalid basic information",
-                        "errorMsg": form_data_error,
-                    }
+                    {"message": "Invalid basic information", "errorMsg": error_msg}
                 )
             )
-            return
-        else:
-            await self.send(json.dumps({"message": "Basic information verified"}))
+        await self.send(json.dumps({"message": "Basic information verified"}))
 
-        valid_image, image_data, image_data_error = await self.verify_and_decode_image(
-            capturedPhoto
+        # Validate and decode image
+        valid_image, image_data, error_msg = await self.verify_and_decode_image(
+            captured_photo
         )
         if not valid_image:
-            await self.send(
-                json.dumps(
-                    {"message": "Invalid image data", "errorMsg": image_data_error}
-                )
+            return await self.send(
+                json.dumps({"message": "Invalid image data", "errorMsg": error_msg})
             )
-            return
-        else:
-            await self.send(json.dumps({"message": "Image data verified"}))
+        await self.send(json.dumps({"message": "Image data verified"}))
 
-        diagnose_result, confidence = await self.diagnose(formData, image_data)
+        # Perform diagnosis
+        diagnose_result, confidence = await self.diagnose()
         await self.send(json.dumps({"message": "Diagnosis complete"}))
 
+        # Generate and save report
         report, final_report = await self.generate_and_save_report(
-            formData, image_data, diagnose_result, confidence
+            form_data, image_data, diagnose_result, confidence
         )
         await self.send(json.dumps({"message": "Report generated", "report": report}))
-        time_ends = time.time()
-        latency = time_ends - time_start
+
+        # Log latency
+        latency = time.time() - time_start
         post_report(final_report, latency)
 
     async def verify_form_data(self, form_data) -> Tuple[bool, Optional[str]]:
         await asyncio.sleep(random.random())
         if not form_data:
             return False, "No basic information provided"
-        camera_type = form_data.get("cameraType")
-        custom_camera_type = form_data.get("customCameraType")
-        age = form_data.get("age")
-        gender = form_data.get("gender")
-        diabetes_history = form_data.get("diabetesHistory")
-        family_diabetes_history = form_data.get("familyDiabetesHistory")
-        weight = form_data.get("weight")
-        height = form_data.get("height")
 
-        keys = [
+        required_fields = [
             "cameraType",
             "age",
             "gender",
@@ -94,36 +82,51 @@ class ProcessConsumer(AsyncWebsocketConsumer):
             "weight",
             "height",
         ]
-        missing_fields = [key for key in keys if not form_data.get(key)]
+        missing_fields = [
+            field for field in required_fields if not form_data.get(field)
+        ]
         if missing_fields:
             return False, f"Missing fields: {', '.join(missing_fields)}"
+
+        camera_type = form_data.get("cameraType")
+        custom_camera_type = form_data.get("customCameraType")
         if camera_type == "Other" and not custom_camera_type:
-            return False, "Custom camera type is required for 'Other' camera type"
-        if camera_type not in [
+            return False, "Custom camera type is required for 'Other'"
+
+        valid_camera_types = {
             "Topcon NW400",
             "Canon CX-1",
             "Optos Daytona Plus",
             "Other",
-        ]:
+        }
+        if camera_type not in valid_camera_types:
             return False, "Invalid camera type"
+
         try:
-            age = int(age)
-            weight = float(weight)
-            height = float(height)
+            age, weight, height = (
+                int(form_data["age"]),
+                float(form_data["weight"]),
+                float(form_data["height"]),
+            )
         except ValueError:
-            return False, "Invalid age, weight, or height, must be a number"
-        if age < 0 or age > 160:
-            return False, "Invalid age, must be between 0 and 160"
-        if gender not in ["Female", "Male", "Non-binary"]:
-            return False, "Invalid gender, must be Female, Male, or Non-binary"
-        if diabetes_history not in ["Yes", "No", "Unknown"]:
-            return False, "Invalid diabetes history, must be Yes, No, or Unknown"
-        if family_diabetes_history not in ["Yes", "No", "Unknown"]:
-            return False, "Invalid family diabetes history, must be Yes, No, or Unknown"
-        if weight < 0 or weight > 500:
-            return False, "Invalid weight, must be between 0 and 500"
-        if height < 0 or height > 300:
-            return False, "Invalid height, must be between 0 and 300"
+            return False, "Age, weight, and height must be numbers"
+
+        if not (0 <= age <= 160):
+            return False, "Age must be between 0 and 160"
+        if not (0 <= weight <= 500):
+            return False, "Weight must be between 0 and 500"
+        if not (0 <= height <= 300):
+            return False, "Height must be between 0 and 300"
+
+        valid_options = {"Yes", "No", "Unknown"}
+        if (
+            form_data["diabetesHistory"] not in valid_options
+            or form_data["familyDiabetesHistory"] not in valid_options
+        ):
+            return False, "Invalid diabetes history values"
+        if form_data["gender"] not in {"Female", "Male", "Non-binary"}:
+            return False, "Invalid gender"
+
         return True, None
 
     async def verify_and_decode_image(
@@ -132,64 +135,47 @@ class ProcessConsumer(AsyncWebsocketConsumer):
         await asyncio.sleep(random.random())
         if not image_data:
             return False, None, "No image data provided"
-        image_data = await self.decode_base64_image(image_data)
-        if not image_data:
+
+        decoded_image = await self.decode_base64_image(image_data)
+        if not decoded_image:
             return False, None, "Failed to decode image data"
+
         if random.random() < IMAGE_QUALITY_FAILED_RATE:
-            return False, image_data, "Image quality low"
-        return True, image_data, None
+            return False, decoded_image, "Image quality is too low"
 
-    async def diagnose(self, form_data, image_data) -> Tuple[bool, float]:
-        """
-        Diagnoses the patient based on the provided form data and image data.
-        """
-        # Simulate a long-running diagnosis process
-        sleep_time = random.randint(2, 10)
-        await asyncio.sleep(sleep_time)
+        return True, decoded_image, None
 
-        diagnose_result = random.random() < PROBABILITY_DIABETES
-        confidence = random.random()
-        return diagnose_result, confidence
+    async def diagnose(self) -> Tuple[bool, float]:
+        await asyncio.sleep(random.randint(2, 8))  # Simulate processing delay
+        return random.random() < PROBABILITY_DIABETES, random.random()
 
-    async def decode_base64_image(self, base64_image):
-        """
-        Decodes a base64 string into binary image data.
-        """
-        # Base64 string format: "data:image/<type>;base64,<encoded_data>"
-        if "base64," in base64_image:
-            header, base64_data = base64_image.split("base64,", 1)
-        else:
-            base64_data = base64_image
-
-        # Decode the base64 string
+    async def decode_base64_image(self, base64_image: str) -> Optional[bytes]:
         try:
+            base64_data = base64_image.split("base64,")[-1]
             return base64.b64decode(base64_data)
         except Exception as e:
-            print(f"Failed to decode base64 image: {e}")
+            print(f"Failed to decode image: {e}")
             return None
 
     async def generate_and_save_report(
         self, form_data, image_data, diagnose_result, confidence
     ):
-        """
-        Generates a report based on the diagnosis result and confidence.
-        """
-        report = {
-            "diagnose": diagnose_result,
-            "confidence": confidence,
-        }
-        id, final_report = await self.save_report(form_data, image_data, report)
-        report["id"] = id
-        return report, final_report
+        report_data = {"diagnose": diagnose_result, "confidence": confidence}
+        report_id, final_report = await self.save_report(
+            form_data, image_data, report_data
+        )
+        report_data["id"] = report_id
+        return report_data, final_report
 
-    async def save_report(self, form_data, image_data, report):
-        """
-        Saves the report to the database.
-        """
+    async def save_report(self, form_data, image_data, report_data):
         report = await sync_to_async(DiagnoseReport.objects.create)(
-            diagnose_result=report["diagnose"],
-            confidence=report["confidence"],
-            camera_type=form_data["cameraType"],
+            diagnose_result=report_data["diagnose"],
+            confidence=report_data["confidence"],
+            camera_type=(
+                form_data["cameraType"]
+                if form_data["cameraType"] != "Other"
+                else form_data["customCameraType"]
+            ),
             age=int(form_data["age"]),
             gender=form_data["gender"],
             diabetes_history=form_data["diabetesHistory"],
@@ -201,5 +187,4 @@ class ProcessConsumer(AsyncWebsocketConsumer):
         image_file = await sync_to_async(ContentFile)(image_data, name=image_file_name)
         await sync_to_async(report.fundus_image.save)(image_file_name, image_file)
         await sync_to_async(report.save)()
-
         return report.id, report
