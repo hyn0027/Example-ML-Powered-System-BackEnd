@@ -5,7 +5,7 @@ from asgiref.sync import sync_to_async
 from django.core.files.base import ContentFile
 
 from .models import DiagnoseReport
-from .monitors import post_report
+from .utils import send_metric_to_grafana
 from .config import IMAGE_QUALITY_FAILED_RATE, PROBABILITY_DIABETES
 
 
@@ -30,22 +30,30 @@ class ProcessConsumer(AsyncWebsocketConsumer):
             return
         await self.send_message("Basic information verified")
 
-        # Step 2: Validate and decode the base64-encoded image
+        # Step 2: Validate and decode the image
         image_data = await self.verify_and_decode_image(captured_photo)
         if image_data is None:
-            return  # If image is invalid, stop further processing
+            # TODO: Send a metric to Grafana for failed image verification (implementation shown below)
+            send_metric_to_grafana(
+                metric_name="image_verification_failed",
+                metric_value=1,
+                labels={"camera_type": form_data.get("cameraType")},
+            )
+
+            return  # If image does not pass the test, stop further processing
+
+        # TODO: Send a metric to Grafana for successful image verification with metric name "image_verification_pass"
+        ...
+
         await self.send_message("Image data verified")
 
-        # Step 3: Perform diagnosis simulation
+        # Step 3: Diagnose the disease
         diagnose_result, confidence = await self.diagnose(form_data, image_data)
         await self.send_message("Diagnosis complete")
 
         # Step 4: Generate and store the diagnosis report
         report = await self.generate_and_save_report(form_data, image_data, diagnose_result, confidence)
         await self.send_message("Report generated", {"diagnose": diagnose_result, "confidence": confidence, "id": report.id})
-
-        # Step 5: Post the report for further processing
-        post_report(report)
 
     async def send_message(self, message: str, data: Optional[Any] = None):
         """Helper function to send messages to the WebSocket client."""
