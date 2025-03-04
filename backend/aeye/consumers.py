@@ -39,7 +39,7 @@ class ProcessConsumer(AsyncWebsocketConsumer):
             send_metric_to_grafana(
                 metric_name="image_verification_failed",
                 metric_value=1,
-                labels={"camera_type": form_data.get("cameraType")},
+                labels={"camera_type": form_data.get("cameraType").replace(" ", "_")},
             )
 
             return  # If image does not pass the test, stop further processing

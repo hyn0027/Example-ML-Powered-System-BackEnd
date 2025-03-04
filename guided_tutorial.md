@@ -5,10 +5,10 @@
 For the hazard: **"Decreased image quality leading to inaccurate diagnostic results,"** we will design a monitor with the following components:
 
 1. **Data Collection**  
-   - Track the number of images that pass and fail the image quality check.
+   - Track the number of images that pass and fail the image quality check and the camera type.
 
 2. **Visualization**  
-   - Plot the rate of low-quality images over time.
+   - Plot the rate of low-quality images for differnt cameras over time.
 
 3. **Alerts**  
    - Notify users when the low-quality image rate exceeds a preset threshold.

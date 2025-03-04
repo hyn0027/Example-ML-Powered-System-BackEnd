@@ -83,8 +83,8 @@ def post_metric(body):
 async def main():
     """Run multiple WebSocket connections in parallel with a concurrency limit."""
     url = "ws://localhost:8000/ws/process/"
-    num_connections = 2000  # Number of total connections
-    max_concurrent_connections = 8  # Maximum number of concurrent connections
+    num_connections = 8000  # Number of total connections
+    max_concurrent_connections = 4  # Maximum number of concurrent connections
     semaphore = asyncio.Semaphore(max_concurrent_connections)
 
     # Generate fake data and create tasks
