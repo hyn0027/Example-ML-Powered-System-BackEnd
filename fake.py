@@ -19,9 +19,7 @@ USER_ID, API_KEY = read_credentials()
 async def generate_fake_data():
     """Generate fake form data and encoded image for testing."""
     form_data = {
-        "cameraType": random.choice(
-            ["Topcon NW400", "Canon CX-1", "Optos Daytona Plus", "Other"]
-        ),
+        "cameraType": random.choice(["Topcon NW400", "Canon CX-1", "Optos Daytona Plus", "Other"]),
         "age": random.randint(0, 100),
         "gender": random.choice(["Female", "Male", "Non-binary"]),
         "diabetesHistory": random.choice(["Yes", "No", "Unknown"]),
@@ -29,11 +27,7 @@ async def generate_fake_data():
         "weight": round(random.uniform(30, 150), 1),
         "height": round(random.uniform(100, 200), 1),
     }
-    form_data["customCameraType"] = (
-        f"CustomCamera{random.randint(1, 3)}"
-        if form_data["cameraType"] == "Other"
-        else ""
-    )
+    form_data["customCameraType"] = f"CustomCamera{random.randint(1, 3)}" if form_data["cameraType"] == "Other" else ""
 
     # Simulate a base64-encoded image (random binary data here for simplicity)
     fake_image_data = base64.b64encode(os.urandom(1024)).decode("utf-8")
@@ -42,6 +36,12 @@ async def generate_fake_data():
     return {
         "formData": form_data,
         "capturedPhoto": captured_photo,
+        "step_history": [
+            {"step": 0, "duration": random.uniform(5, 60)},
+            {"step": 1, "duration": random.uniform(3, 120)},
+            {"step": 2, "duration": random.uniform(2, 30)},
+        ],
+        "retake_count": random.randint(0, 3),
     }
 
 
@@ -65,44 +65,6 @@ async def call_api(url, fake_data, semaphore):
                         break
         except Exception as e:
             print(f"Error in WebSocket connection: {e}")
-        post_user_interface_info(random.gauss(120, 50), random.randint(1, 5), fake_data)
-
-
-def post_user_interface_info(total_time, photo_retake, fake_data):
-    body = (
-        f"UI_total_time,"
-        f"camera_type={fake_data['formData']['cameraType'].replace(' ', '_')},"
-        f"age={fake_data['formData']['age']},"
-        f"age_group={fake_data['formData']['age'] // 10},"
-        f"gender={fake_data['formData']['gender']},"
-        f"diabetes_history={fake_data['formData']['diabetesHistory']},"
-        f"family_diabetes_history={fake_data['formData']['familyDiabetesHistory']},"
-        f"weight={fake_data['formData']['weight']},"
-        f"weight_group={fake_data['formData']['weight'] // 10},"
-        f"height={fake_data['formData']['height']},"
-        f"height_group={fake_data['formData']['height'] // 10},"
-        "source=UserInterface "
-        f"value={total_time}"
-    )
-    post_metric(body)
-    print("posted total time")
-    body = (
-        f"UI_photo_retake,"
-        f"camera_type={fake_data['formData']['cameraType'].replace(' ', '_')},"
-        f"age={fake_data['formData']['age']},"
-        f"age_group={fake_data['formData']['age'] // 10},"
-        f"gender={fake_data['formData']['gender']},"
-        f"diabetes_history={fake_data['formData']['diabetesHistory']},"
-        f"family_diabetes_history={fake_data['formData']['familyDiabetesHistory']},"
-        f"weight={fake_data['formData']['weight']},"
-        f"weight_group={fake_data['formData']['weight'] // 10},"
-        f"height={fake_data['formData']['height']},"
-        f"height_group={fake_data['formData']['height'] // 10},"
-        "source=UserInterface "
-        f"value={photo_retake}"
-    )
-    post_metric(body)
-    print("posted photo retake")
 
 
 def post_metric(body):
@@ -122,14 +84,11 @@ async def main():
     """Run multiple WebSocket connections in parallel with a concurrency limit."""
     url = "ws://localhost:8000/ws/process/"
     num_connections = 2000  # Number of total connections
-    max_concurrent_connections = 4  # Maximum number of concurrent connections
+    max_concurrent_connections = 8  # Maximum number of concurrent connections
     semaphore = asyncio.Semaphore(max_concurrent_connections)
 
     # Generate fake data and create tasks
-    tasks = [
-        call_api(url, await generate_fake_data(), semaphore)
-        for _ in range(num_connections)
-    ]
+    tasks = [call_api(url, await generate_fake_data(), semaphore) for _ in range(num_connections)]
 
     # Run tasks concurrently
     await asyncio.gather(*tasks)
