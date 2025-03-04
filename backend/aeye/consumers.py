@@ -37,12 +37,12 @@ class ProcessConsumer(AsyncWebsocketConsumer):
             send_metric_to_grafana(
                 metric_name="image_verification_failed",
                 metric_value=1,
-                labels={"camera_type": form_data.get("cameraType").replace(" ", "_")},
+                labels={"camera_type": form_data.get("cameraType")},
             )
 
             return  # If image does not pass the test, stop further processing
 
-        # TODO: Send a metric to Grafana for successful image verification
+        # TODO: Send a metric to Grafana for successful image verification with metric name "image_verification_pass"
         ...
 
         await self.send_message("Image data verified")

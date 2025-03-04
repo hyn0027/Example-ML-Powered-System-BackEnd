@@ -28,7 +28,7 @@ def send_metric_to_grafana(metric_name: str, metric_value, labels: Dict):
     # Construct the body of the metric in InfluxDB line protocol format
     body = (
         f"{metric_name},"
-        + ",".join([f"{key}={value}" for key, value in labels.items()])
+        + ",".join([f"{key.replace(' ', '_')}={value.replace(' ', '_')}" for key, value in labels.items()])
         + ",source=ToySysServer "
         + f"value={metric_value}"
     )
