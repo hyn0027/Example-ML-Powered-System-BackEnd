@@ -2,7 +2,7 @@
 
 ## **1. Designing the Monitor**
 
-For the hazard: **"Poor quality fundus images leading to unreliable analysis,"** we will design a monitor with the following components:
+For the hazard: **"Decreased image quality leading to inaccurate diagnostic results,"** we will design a monitor with the following components:
 
 1. **Data Collection**  
    - Track the number of images that pass and fail the image quality check.
