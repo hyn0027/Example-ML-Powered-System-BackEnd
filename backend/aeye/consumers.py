@@ -34,8 +34,6 @@ class ProcessConsumer(AsyncWebsocketConsumer):
         image_data = await self.verify_and_decode_image(captured_photo)
         if image_data is None:
             # TODO: Send a metric to Grafana for failed image verification (implementation shown below)
-            # We do not use the info passed to labels for this simple monitor,
-            # but it can be useful in other scenarios.
             send_metric_to_grafana(
                 metric_name="image_verification_failed",
                 metric_value=1,
