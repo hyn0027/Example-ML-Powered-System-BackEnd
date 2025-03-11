@@ -1,5 +1,5 @@
 from channels.generic.websocket import AsyncWebsocketConsumer
-import json, asyncio, base64, random
+import json, asyncio, base64, random, httpx
 from typing import Tuple, Optional, Dict, Any
 from asgiref.sync import sync_to_async
 from django.core.files.base import ContentFile
@@ -48,7 +48,7 @@ class ProcessConsumer(AsyncWebsocketConsumer):
         await self.send_message("Image data verified")
 
         # Step 3: Diagnose the disease
-        diagnose_result, confidence = await self.diagnose(form_data, image_data)
+        diagnose_result, confidence = await self.call_diagnose_api(form_data, image_data)
         await self.send_message("Diagnosis complete")
 
         # Step 4: Generate and store the diagnosis report
@@ -88,18 +88,42 @@ class ProcessConsumer(AsyncWebsocketConsumer):
             return None
 
         # Simulate random failure due to image quality issues
-        if random.random() < IMAGE_QUALITY_FAILED_RATE:
+        if not await self.call_image_quality_api(decoded_image):
             await self.send_message("Invalid image data", "Image quality is too low")
             return None
 
         return decoded_image  # Return decoded image data if valid
 
-    async def diagnose(self, form_data, image_data) -> Tuple[bool, float]:
-        """Simulates a diagnostic process and returns a result with confidence score."""
-        await asyncio.sleep(random.randint(2, 8))  # Simulate AI processing delay
+    async def call_image_quality_api(self, image_data: bytes) -> bool:
+        """Calls an external API to check the quality of the captured image."""
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "http://localhost:8000/aeye/image-quality/",  # Change to appropriate host/port in production
+                data={"imageData": base64.b64encode(image_data).decode("utf-8")},
+                timeout=30.0,
+            )
 
-        # Generate a random diagnosis result and confidence level
-        return random.random() < PROBABILITY_DIABETES, random.uniform(0.5, 1.0)
+        if response.status_code == 200:
+            return response.json().get("image_quality_passed", False)
+        else:
+            await self.send_message("Image quality check failed", "Error from image quality API")
+            return False
+
+    async def call_diagnose_api(self, form_data, image_data) -> Tuple[bool, float]:
+        """Calls the external diagnose API and retrieves the result."""
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "http://localhost:8000/aeye/diagnose/",  # Change to appropriate host/port in production
+                json={"formData": form_data, "imageData": base64.b64encode(image_data).decode("utf-8")},
+                timeout=30.0,
+            )
+
+        if response.status_code == 200:
+            json_response = response.json()
+            return json_response["diagnose_result"], json_response["confidence"]
+        else:
+            await self.send_message("Diagnosis failed", "Error from diagnose API")
+            return False, 0.0  # Default in case of failure
 
     async def generate_and_save_report(
         self,
