@@ -20,3 +20,16 @@ class DiagnoseAPIView(APIView):
             "diagnose_result": diagnose_result,
             "confidence": confidence
         }, status=status.HTTP_200_OK)
+
+class ImageQualityAPIView(APIView):
+    def post(self, request, *args, **kwargs):
+        image_data = request.data.get('imageData')  # Expect base64 image
+
+        # (Optional) Additional validation can be performed here
+
+        # Simulate image quality check
+        image_quality_passed = random.random() > 0.1
+
+        return Response({
+            "image_quality_passed": image_quality_passed
+        }, status=status.HTTP_200_OK)

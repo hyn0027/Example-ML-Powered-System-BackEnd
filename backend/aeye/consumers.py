@@ -88,22 +88,34 @@ class ProcessConsumer(AsyncWebsocketConsumer):
             return None
 
         # Simulate random failure due to image quality issues
-        if random.random() < IMAGE_QUALITY_FAILED_RATE:
+        if not await self.call_image_quality_api(decoded_image):
             await self.send_message("Invalid image data", "Image quality is too low")
             return None
 
         return decoded_image  # Return decoded image data if valid
+
+    async def call_image_quality_api(self, image_data: bytes) -> bool:
+        """Calls an external API to check the quality of the captured image."""
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "http://localhost:8000/aeye/image-quality/",  # Change to appropriate host/port in production
+                data={"imageData": base64.b64encode(image_data).decode("utf-8")},
+                timeout=30.0,
+            )
+
+        if response.status_code == 200:
+            return response.json().get("image_quality_passed", False)
+        else:
+            await self.send_message("Image quality check failed", "Error from image quality API")
+            return False
 
     async def call_diagnose_api(self, form_data, image_data) -> Tuple[bool, float]:
         """Calls the external diagnose API and retrieves the result."""
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 "http://localhost:8000/aeye/diagnose/",  # Change to appropriate host/port in production
-                json={
-                    "formData": form_data,
-                    "imageData": base64.b64encode(image_data).decode('utf-8')
-                },
-                timeout=30.0
+                json={"formData": form_data, "imageData": base64.b64encode(image_data).decode("utf-8")},
+                timeout=30.0,
             )
 
         if response.status_code == 200:
