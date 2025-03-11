@@ -1,14 +1,15 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+import time
 import random
 from .config import PROBABILITY_DIABETES
 
 
 class DiagnoseAPIView(APIView):
     def post(self, request, *args, **kwargs):
-        form_data = request.data.get('formData')
-        image_data = request.data.get('imageData')  # Expect base64 image
+        form_data = request.data.get("formData")
+        image_data = request.data.get("imageData")  # Expect base64 image
 
         # (Optional) Additional validation can be performed here
 
@@ -16,20 +17,20 @@ class DiagnoseAPIView(APIView):
         diagnose_result = random.random() < PROBABILITY_DIABETES
         confidence = round(random.uniform(0.5, 1.0), 2)
 
-        return Response({
-            "diagnose_result": diagnose_result,
-            "confidence": confidence
-        }, status=status.HTTP_200_OK)
+        time.sleep(random.uniform(4, 8))  # Simulate processing delay
+
+        return Response({"diagnose_result": diagnose_result, "confidence": confidence}, status=status.HTTP_200_OK)
+
 
 class ImageQualityAPIView(APIView):
     def post(self, request, *args, **kwargs):
-        image_data = request.data.get('imageData')  # Expect base64 image
+        image_data = request.data.get("imageData")  # Expect base64 image
 
         # (Optional) Additional validation can be performed here
 
         # Simulate image quality check
         image_quality_passed = random.random() > 0.1
 
-        return Response({
-            "image_quality_passed": image_quality_passed
-        }, status=status.HTTP_200_OK)
+        time.sleep(random.uniform(1, 2))  # Simulate processing delay
+
+        return Response({"image_quality_passed": image_quality_passed}, status=status.HTTP_200_OK)
