@@ -6,8 +6,6 @@ from django.core.files.base import ContentFile
 
 from .models import DiagnoseReport
 from .utils import send_metric_to_grafana
-from .config import IMAGE_QUALITY_FAILED_RATE, PROBABILITY_DIABETES
-
 
 class ProcessConsumer(AsyncWebsocketConsumer):
     async def connect(self):
