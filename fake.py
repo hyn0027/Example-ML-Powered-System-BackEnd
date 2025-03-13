@@ -5,6 +5,7 @@ import random
 import base64
 import os
 import requests
+import argparse
 
 
 def read_credentials():
@@ -80,10 +81,9 @@ def post_metric(body):
     return status_code
 
 
-async def main():
+async def main(num_connections):
     """Run multiple WebSocket connections in parallel with a concurrency limit."""
     url = "ws://localhost:8000/ws/process/"
-    num_connections = 8000  # Number of total connections
     max_concurrent_connections = 4  # Maximum number of concurrent connections
     semaphore = asyncio.Semaphore(max_concurrent_connections)
 
@@ -95,4 +95,7 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    args = argparse.ArgumentParser()
+    args.add_argument("--num_calls", type=int, default=8000)
+    args = args.parse_args()
+    asyncio.run(main(args.num_calls))
