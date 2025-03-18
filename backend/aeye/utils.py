@@ -26,12 +26,15 @@ def send_metric_to_grafana(metric_name: str, metric_value, labels: Dict):
         int: HTTP status code of the request.
     """
     # Construct the body of the metric in InfluxDB line protocol format
-    body = (
-        f"{metric_name},"
-        + ",".join([f"{key.replace(' ', '_')}={value.replace(' ', '_')}" for key, value in labels.items()])
-        + ",source=ToySysServer "
-        + f"value={metric_value}"
-    )
+    if len(labels) == 0:
+        body = f"{metric_name},source=ToySysServer value={metric_value}"
+    else:
+        body = (
+            f"{metric_name},"
+            + ",".join([f"{key.replace(' ', '_')}={value.replace(' ', '_')}" for key, value in labels.items()])
+            + ",source=ToySysServer "
+            + f"value={metric_value}"
+        )
 
     # Send the metric and get the response status code
     status_code = post_metric(body)
