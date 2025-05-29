@@ -5,7 +5,6 @@ from asgiref.sync import sync_to_async
 from django.core.files.base import ContentFile
 
 from .models import DiagnoseReport
-from .utils import send_metric_to_grafana
 
 class ProcessConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -31,18 +30,7 @@ class ProcessConsumer(AsyncWebsocketConsumer):
         # Step 2: Validate and decode the image
         image_data = await self.verify_and_decode_image(captured_photo)
         if image_data is None:
-            # TODO: Send a metric to Grafana for failed image verification (implementation shown below)
-            send_metric_to_grafana(
-                metric_name="image_verification_failed",
-                metric_value=1,
-                labels={"camera_type": form_data.get("cameraType")},
-            )
-
             return  # If image does not pass the test, stop further processing
-
-        # TODO: Send a metric to Grafana for successful image verification with metric name "image_verification_pass"
-        ...
-
         await self.send_message("Image data verified")
 
         # Step 3: Diagnose the disease
